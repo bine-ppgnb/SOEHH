@@ -7,11 +7,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import differential_evolution
+import time
 
 
 progress = []
+start_time = time.time()
 
-def f(X):
+def f(X, printer=False):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
         filepath_or_buffer='./datasets/winsconsin_569_32_normalizado.csv',
@@ -38,18 +40,20 @@ def f(X):
         test_size=0.3,
     )
 
+    svc = SVC(
+        C=X[0],
+        kernel='poly',
+        degree=X[1],
+        gamma=X[2],
+        coef0=X[3],
+        shrinking=X[4],
+        break_ties=X[5],
+    );
+
     # Creating a pipeline with the scaler and the classifier
     clf = make_pipeline(
         StandardScaler(),
-        SVC(
-            C=X[0],
-            kernel='poly',
-            degree=X[1],
-            gamma=X[2],
-            coef0=X[3],
-            shrinking=X[4],
-            break_ties=X[5],
-        ),
+        svc,
     )
 
     # Fit the classifier with the training data
@@ -60,7 +64,10 @@ def f(X):
 
     # Calculate accuracy
     accuracy = clf.score(samples_test, labels_test)
-    print('Mean accuracy: %s' % accuracy)
+
+    if (printer):
+        print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
+                                                                                 start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
     return -accuracy
 
@@ -80,12 +87,12 @@ result = differential_evolution(
     recombination=0.7,
     seed=None,
     callback=save_value,
-    disp=True,
+    disp=False,
     polish=True,
     init='latinhypercube',
 )
 
-print(result)
+f(result.x, True)
 
 # Plot
 # plt.plot(progress)

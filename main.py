@@ -7,6 +7,9 @@ import numpy as np
 import pandas as pd
 from mlxtend.plotting import plot_decision_regions
 import matplotlib.pyplot as plt
+import time
+
+start_time = time.time()
 
 # Read the csv data into a pandas data frame (df)
 df = pd.read_csv(
@@ -34,10 +37,20 @@ samples_train, samples_test, labels_train, labels_test = train_test_split(
     test_size=0.3,
 )
 
+svc = SVC(
+    C=1.0,
+    kernel='poly',
+    degree=3,
+    gamma='scale',
+    coef0=0.0,
+    shrinking=True,
+    break_ties=False,
+);
+
 # Creating a pipeline with the scaler and the classifier
 clf = make_pipeline(
     StandardScaler(),
-    SVC(kernel='poly')
+    svc
 )
 
 # Fit the classifier with the training data
@@ -48,7 +61,15 @@ clf.fit(
 
 # Calculate accuracy
 accuracy = clf.score(samples_test, labels_test)
-print('Mean accuracy: %s' % accuracy)
+# print('Accuracy: %s' % accuracy)
+
+# Number of support vectors
+# print('Number of support vectors: %s' % svc.n_support_)
+
+# Time
+# print("Time: %s seconds" % (time.time() - start_time))
+
+print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() - start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
 # # Some features to plot
 # X = df.iloc[:,:2]

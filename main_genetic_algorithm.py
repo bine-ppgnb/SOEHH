@@ -8,8 +8,11 @@ import pandas as pd
 from mlxtend.plotting import plot_decision_regions
 import matplotlib.pyplot as plt
 from geneticalgorithm import geneticalgorithm as ga
+import time
 
-def f(X):
+start_time = time.time()
+
+def f(X, printer=False):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
         filepath_or_buffer='./datasets/winsconsin_569_32_normalizado.csv',
@@ -36,19 +39,21 @@ def f(X):
         test_size=0.3,
     )
 
+    svc = SVC(
+        C=X[0],
+        kernel='poly',
+        degree=X[1],
+        gamma=X[2],
+        coef0=X[3],
+        shrinking=X[4],
+        break_ties=X[5],
+    )
+
     # Creating a pipeline with the scaler and the classifier
     clf = make_pipeline(
         StandardScaler(),
-        SVC(
-            C=X[0],
-            kernel='poly',
-            degree=X[1],
-            gamma=X[2],
-            coef0=X[3],
-            shrinking=X[4],
-            break_ties=X[5],
-        ),
-    )
+        svc,
+    );
 
     # Fit the classifier with the training data
     clf.fit(
@@ -58,7 +63,10 @@ def f(X):
 
     # Calculate accuracy
     accuracy = clf.score(samples_test, labels_test)
-    print('Mean accuracy: %s' % accuracy)
+
+    if (printer):
+        print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
+                                                                                     start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
     return -accuracy
 
@@ -81,11 +89,13 @@ model = ga(
     dimension=6,
     variable_type_mixed=vartype,
     variable_boundaries=varbound,
+    convergence_curve=False,
+    progress_bar=False,
 )
 
 model.run()
 
-print(model.param)
+f(model.best_variable, True)
 
 # Calculate accuracy
 # accuracy = clf.score(samples_test, labels_test)

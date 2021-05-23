@@ -9,7 +9,9 @@ import pandas as pd
 from mlxtend.plotting import plot_decision_regions
 import matplotlib.pyplot as plt
 from geneticalgorithm import geneticalgorithm as ga
+import time
 
+start_time = time.time()
 
 def read_and_split_dataset(test_size=0.3):
     # Read the csv data into a pandas data frame (df)
@@ -45,7 +47,7 @@ def feature_selection(samples_train, labels_train, max_features=30):
     selector = GeneticSelectionCV(
         estimator,
         cv=5,
-        verbose=1,
+        verbose=0,
         scoring="accuracy",
         max_features=max_features,
         n_population=500,
@@ -80,12 +82,11 @@ def extract_features(selected_features, samples):
 
     for i in range(len(selected_features)):
         if selected_features[i] == True:
-            print(i)
             indexes.append(i)
 
     return np.delete(samples, indexes, axis=1)
 
-def svm(X):
+def svm(X, printer=False):
     # Replace all missing data (non numeric) with NaN (Not a Number)
     samples_train_df = pd.DataFrame.from_records(samples_train_selected_features).apply(lambda x: pd.to_numeric(x, errors='coerce'))
 
@@ -95,18 +96,20 @@ def svm(X):
     # Fill mising values in the samples
     samples_fit = imputer.fit_transform(samples_train_df)
 
+    svc = SVC(
+        C=X[0],
+        kernel='poly',
+        degree=X[1],
+        gamma=X[2],
+        coef0=X[3],
+        shrinking=X[4],
+        break_ties=X[5],
+    );
+
     # Creating a pipeline with the scaler and the classifier
     clf = make_pipeline(
         StandardScaler(),
-        SVC(
-            C=X[0],
-            kernel='poly',
-            degree=X[1],
-            gamma=X[2],
-            coef0=X[3],
-            shrinking=X[4],
-            break_ties=X[5],
-        ),
+        svc
     )
 
     # Fit the classifier with the training data
@@ -115,7 +118,13 @@ def svm(X):
         labels_train.values.ravel()  # Transform a column vector to 1d array
     )
 
-    return -clf.score(samples_test_selected_features, labels_test)
+    accuracy = clf.score(samples_test_selected_features, labels_test)
+
+    if (printer):
+        print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
+                                                                                     start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
+
+    return -accuracy
 
 
 def genetic_algorithm():
@@ -137,6 +146,8 @@ def genetic_algorithm():
         dimension=6,
         variable_type_mixed=vartype,
         variable_boundaries=varbound,
+        convergence_curve=False,
+        progress_bar=False
     )
 
     model.run()
@@ -153,12 +164,7 @@ samples_train_selected_features = extract_features(selected_features, samples_tr
 samples_test_selected_features = extract_features(selected_features, samples_test)
 
 parameters = genetic_algorithm()
-print('Parameters:')
-print(parameters)
-
-accuracy = svm(parameters)
-print('Mean accuracy:')
-print(accuracy)
+svm(parameters, True)
 
 # Calculate accuracy
 # accuracy = clf.score(samples_test, labels_test)
