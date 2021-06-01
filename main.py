@@ -13,7 +13,7 @@ start_time = time.time()
 
 # Read the csv data into a pandas data frame (df)
 df = pd.read_csv(
-    filepath_or_buffer='./datasets/winsconsin_569_32_normalizado.csv',
+    filepath_or_buffer='./datasets/winsconsin_699_10_normalizado.csv',
     header=0
 )
 

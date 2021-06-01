@@ -16,7 +16,7 @@ start_time = time.time()
 def f(X, printer=False):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
-        filepath_or_buffer='./datasets/winsconsin_569_32_normalizado.csv',
+        filepath_or_buffer='./datasets/winsconsin_699_10_normalizado.csv',
         header=0
     )
 
@@ -74,7 +74,7 @@ def f(X, printer=False):
 def save_value(x, convergence):
     progress.append(f(x))
 
-bounds = [(1.0, 50.0), (0, 5), (1.0, 50.0), (0.0, 50.0), (0, 1), (0, 1)]
+bounds = [(1.0, 5.0), (0, 5), (1.0, 5.0), (0.0, 5.0), (0, 1), (0, 1)]
 result = differential_evolution(
     func=f,
     bounds=bounds,

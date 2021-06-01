@@ -16,7 +16,7 @@ start_time = time.time()
 def read_and_split_dataset(test_size=0.3):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
-        filepath_or_buffer='./datasets/winsconsin_569_32_normalizado.csv',
+        filepath_or_buffer='./datasets/winsconsin_699_10_normalizado.csv',
         header=0
     )
 
@@ -81,7 +81,7 @@ def extract_features(selected_features, samples):
     indexes = []
 
     for i in range(len(selected_features)):
-        if selected_features[i] == True:
+        if selected_features[i] == False:
             indexes.append(i)
 
     return np.delete(samples, indexes, axis=1)
@@ -128,8 +128,8 @@ def svm(X, printer=False):
 
 
 def genetic_algorithm():
-    varbound = np.array([[1.0, 50.0], [0, 5], [1.0, 50.0],
-                         [0.0, 50.0], [0, 1], [0, 1]])
+    varbound = np.array([[1.0, 5.0], [0, 5], [1.0, 5.0],
+                         [0.0, 5.0], [0, 1], [0, 1]])
     vartype = np.array([['real'], ['int'], ['real'], ['real'], ['int'], ['int']])
 
     algorithm_parameters = {'max_num_iteration': 100,
@@ -139,7 +139,7 @@ def genetic_algorithm():
                             'crossover_probability': 0.5,
                             'parents_portion': 0.3,
                             'crossover_type': 'uniform',
-                            'max_iteration_without_improv': None}
+                            'max_iteration_without_improv': 5}
     model = ga(
         algorithm_parameters=algorithm_parameters,
         function=svm,
@@ -158,7 +158,7 @@ def genetic_algorithm():
 # Quickly sample a training set while holding out 30% of the data for testing (evaluating) our classifier
 samples_train, samples_test, labels_train, labels_test = read_and_split_dataset()
 
-selected_features = feature_selection(samples_train, labels_train, 5)
+selected_features = feature_selection(samples_train, labels_train, None)
 
 samples_train_selected_features = extract_features(selected_features, samples_train)
 samples_test_selected_features = extract_features(selected_features, samples_test)
