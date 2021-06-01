@@ -13,6 +13,20 @@ import time
 progress = []
 start_time = time.time()
 
+def get_kernel(kernel_id):
+    kernel_id = int(round(kernel_id))
+
+    if kernel_id == 1:
+        return 'linear'
+    elif kernel_id == 2:
+        return 'poly'
+    elif kernel_id == 3:
+        return 'rbf'
+    elif kernel_id == 4:
+        return 'sigmoid'
+    else:
+        raise Exception
+
 def f(X, printer=False):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
@@ -42,12 +56,12 @@ def f(X, printer=False):
 
     svc = SVC(
         C=X[0],
-        kernel='poly',
-        degree=X[1],
-        gamma=X[2],
-        coef0=X[3],
-        shrinking=X[4],
-        break_ties=X[5],
+        kernel=get_kernel(X[1]),
+        degree=X[2],
+        gamma=X[3],
+        coef0=X[4],
+        shrinking=X[5],
+        break_ties=X[6],
     );
 
     # Creating a pipeline with the scaler and the classifier
@@ -67,14 +81,14 @@ def f(X, printer=False):
 
     if (printer):
         print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
-                                                                                 start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
+                                                                                     start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
     return -accuracy
 
 def save_value(x, convergence):
     progress.append(f(x))
 
-bounds = [(1.0, 5.0), (0, 5), (1.0, 5.0), (0.0, 5.0), (0, 1), (0, 1)]
+bounds = [(1.0, 5.0), (1, 4), (0, 5), (1.0, 5.0), (0.0, 5.0), (0, 1), (0, 1)]
 result = differential_evolution(
     func=f,
     bounds=bounds,

@@ -8,6 +8,8 @@ import pandas as pd
 from mlxtend.plotting import plot_decision_regions
 import matplotlib.pyplot as plt
 import time
+import os
+import csv
 
 start_time = time.time()
 
@@ -39,7 +41,7 @@ samples_train, samples_test, labels_train, labels_test = train_test_split(
 
 svc = SVC(
     C=1.0,
-    kernel='poly',
+    kernel='sigmoid',
     degree=3,
     gamma='scale',
     coef0=0.0,
@@ -69,7 +71,8 @@ accuracy = clf.score(samples_test, labels_test)
 # Time
 # print("Time: %s seconds" % (time.time() - start_time))
 
-print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() - start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
+print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
+                                                                                start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
 # # Some features to plot
 # X = df.iloc[:,:2]

@@ -10,8 +10,25 @@ from mlxtend.plotting import plot_decision_regions
 import matplotlib.pyplot as plt
 from geneticalgorithm import geneticalgorithm as ga
 import time
+import csv
+import os
 
 start_time = time.time()
+
+
+def get_kernel(kernel_id):
+    kernel_id = int(round(kernel_id))
+
+    if kernel_id == 1:
+        return 'linear'
+    elif kernel_id == 2:
+        return 'poly'
+    elif kernel_id == 3:
+        return 'rbf'
+    elif kernel_id == 4:
+        return 'sigmoid'
+    else:
+        raise Exception
 
 def read_and_split_dataset(test_size=0.3):
     # Read the csv data into a pandas data frame (df)
@@ -98,13 +115,13 @@ def svm(X, printer=False):
 
     svc = SVC(
         C=X[0],
-        kernel='poly',
-        degree=X[1],
-        gamma=X[2],
-        coef0=X[3],
-        shrinking=X[4],
-        break_ties=X[5],
-    );
+        kernel=get_kernel(X[1]),
+        degree=X[2],
+        gamma=X[3],
+        coef0=X[4],
+        shrinking=X[5],
+        break_ties=X[6],
+    )
 
     # Creating a pipeline with the scaler and the classifier
     clf = make_pipeline(
@@ -128,9 +145,10 @@ def svm(X, printer=False):
 
 
 def genetic_algorithm():
-    varbound = np.array([[1.0, 5.0], [0, 5], [1.0, 5.0],
-                         [0.0, 5.0], [0, 1], [0, 1]])
-    vartype = np.array([['real'], ['int'], ['real'], ['real'], ['int'], ['int']])
+    varbound = np.array([[1.0, 5.0], [1, 4], [0, 5], [
+                        1.0, 5.0], [0.0, 5.0], [0, 1], [0, 1]])
+    vartype = np.array([['real'], ['int'], ['int'], [
+                    'real'], ['real'], ['int'], ['int']])
 
     algorithm_parameters = {'max_num_iteration': 100,
                             'population_size': 10,
@@ -143,11 +161,12 @@ def genetic_algorithm():
     model = ga(
         algorithm_parameters=algorithm_parameters,
         function=svm,
-        dimension=6,
+        dimension=7,
         variable_type_mixed=vartype,
         variable_boundaries=varbound,
         convergence_curve=False,
-        progress_bar=False
+        progress_bar=False,
+        function_timeout=60
     )
 
     model.run()
