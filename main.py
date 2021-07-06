@@ -3,6 +3,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import cross_val_score
 import numpy as np
 import pandas as pd
 from mlxtend.plotting import plot_decision_regions
@@ -61,15 +63,13 @@ clf.fit(
     labels_train.values.ravel()  # Transform a column vector to 1d array
 )
 
+cv = RepeatedKFold(n_splits=10, n_repeats=10, random_state=1)
+
+scores = cross_val_score(
+    clf, samples, labels.values.ravel(), scoring='accuracy', cv=cv, n_jobs=-1)
+
 # Calculate accuracy
-accuracy = clf.score(samples_test, labels_test)
-# print('Accuracy: %s' % accuracy)
-
-# Number of support vectors
-# print('Number of support vectors: %s' % svc.n_support_)
-
-# Time
-# print("Time: %s seconds" % (time.time() - start_time))
+accuracy = np.mean(scores)
 
 print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
                                                                                 start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))

@@ -3,14 +3,15 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import cross_val_score
 import numpy as np
 import pandas as pd
 from mlxtend.plotting import plot_decision_regions
 import matplotlib.pyplot as plt
 from geneticalgorithm import geneticalgorithm as ga
 import time
-import os
-import csv
+
 
 start_time = time.time()
 
@@ -31,7 +32,7 @@ def get_kernel(kernel_id):
 def f(X, printer=False):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
-        filepath_or_buffer='./datasets/winsconsin_699_10_normalizado.csv',
+        filepath_or_buffer='./datasets/winsconsin_569_32_normalizado.csv',
         header=0
     )
 
@@ -81,6 +82,14 @@ def f(X, printer=False):
     accuracy = clf.score(samples_test, labels_test)
 
     if (printer):
+        cv = RepeatedKFold(n_splits=10, n_repeats=10, random_state=1)
+
+        scores = cross_val_score(
+            clf, samples, labels.values.ravel(), scoring='accuracy', cv=cv, n_jobs=-1)
+
+        # Calculate accuracy
+        accuracy = np.mean(scores)
+
         print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
                                                                                      start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
