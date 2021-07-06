@@ -3,6 +3,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
+from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import cross_val_score
+from sklearn.feature_selection import RFE
 from genetic_selection import GeneticSelectionCV
 import numpy as np
 import pandas as pd
@@ -14,6 +17,7 @@ import csv
 import os
 
 start_time = time.time()
+dataset = './datasets/winsconsin_699_10_normalizado.csv'
 
 
 def get_kernel(kernel_id):
@@ -33,7 +37,7 @@ def get_kernel(kernel_id):
 def read_and_split_dataset(test_size=0.3):
     # Read the csv data into a pandas data frame (df)
     df = pd.read_csv(
-        filepath_or_buffer='./datasets/winsconsin_699_10_normalizado.csv',
+        filepath_or_buffer=dataset,
         header=0
     )
 
@@ -57,42 +61,12 @@ def read_and_split_dataset(test_size=0.3):
         test_size=test_size,
     )
 
-
 def feature_selection(samples_train, labels_train, max_features=30):
-    estimator = SVC(kernel='poly')
+    selector = RFE(estimator=SVC(kernel="linear", C=1), n_features_to_select=5, step=1)
 
-    selector = GeneticSelectionCV(
-        estimator,
-        cv=5,
-        verbose=0,
-        scoring="accuracy",
-        max_features=max_features,
-        n_population=500,
-        crossover_proba=0.5,
-        mutation_proba=0.2,
-        n_generations=50,
-        crossover_independent_proba=0.5,
-        mutation_independent_proba=0.05,
-        tournament_size=3,
-        n_gen_no_change=10,
-        caching=True,
-        n_jobs=-1
-    )
+    selector.fit_transform(samples_train, labels_train.values.ravel())
 
-    # Creating a pipeline with the scaler and the classifier
-    clf = make_pipeline(
-        StandardScaler(),
-        selector,
-    )
-
-    # Fit the classifier with the training data
-    clf.fit(
-        samples_train,
-        labels_train.values.ravel()  # Transform a column vector to 1d array
-    )
-
-    return selector.support_
-
+    return selector._get_support_mask()
 
 def extract_features(selected_features, samples):
     indexes = []
@@ -105,7 +79,7 @@ def extract_features(selected_features, samples):
 
 def svm(X, printer=False):
     # Replace all missing data (non numeric) with NaN (Not a Number)
-    samples_train_df = pd.DataFrame.from_records(samples_train_selected_features).apply(lambda x: pd.to_numeric(x, errors='coerce'))
+    samples_train_df = pd.DataFrame.from_records(samples_train).apply(lambda x: pd.to_numeric(x, errors='coerce'))
 
     # Create a inputer to fill missing values
     imputer = SimpleImputer(strategy='most_frequent')
@@ -135,14 +109,40 @@ def svm(X, printer=False):
         labels_train.values.ravel()  # Transform a column vector to 1d array
     )
 
-    accuracy = clf.score(samples_test_selected_features, labels_test)
+    accuracy = clf.score(samples_test, labels_test)
 
     if (printer):
+        # Read the csv data into a pandas data frame (df)
+        df = pd.read_csv(
+            filepath_or_buffer=dataset,
+            header=0
+        )
+
+        samples = df.iloc[:, :-1]  # All columns except the last
+        labels = df.iloc[:, -1:]  # The last column
+
+        # Replace all missing data (non numeric) with NaN (Not a Number)
+        samples = samples.apply(lambda x: pd.to_numeric(x, errors='coerce'))
+
+        # Create a inputer to fill missing values
+        imputer = SimpleImputer(strategy='most_frequent')
+
+        # Fill mising values in the samples
+        # We only take the first two features.
+        samples = imputer.fit_transform(samples)
+
+        cv = RepeatedKFold(n_splits=10, n_repeats=10, random_state=1)
+
+        scores = cross_val_score(
+            clf, samples, labels.values.ravel(), scoring='accuracy', cv=cv, n_jobs=-1)
+
+        # Calculate accuracy
+        accuracy = np.mean(scores)
+
         print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (accuracy, svc.n_support_, (time.time() -
                                                                                      start_time), svc.C, svc.kernel, svc.degree, svc.gamma, svc.coef0, svc.shrinking, svc.break_ties))
 
     return -accuracy
-
 
 def differential_evolution_algorithm():
     bounds = [(1.0, 5.0), (1, 4), (0, 5), (1.0, 5.0), (0.0, 5.0), (0, 1), (0, 1)]
@@ -173,7 +173,7 @@ samples_train_selected_features = extract_features(selected_features, samples_tr
 samples_test_selected_features = extract_features(selected_features, samples_test)
 
 parameters = differential_evolution_algorithm()
-accuracy = svm(parameters.x, True)
+svm(parameters.x, True)
 
 # Calculate accuracy
 # accuracy = clf.score(samples_test, labels_test)
