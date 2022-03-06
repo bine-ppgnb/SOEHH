@@ -3,7 +3,9 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import VarianceThreshold
-from geneticalgorithm import geneticalgorithm as ga
+from geneticalgorithm2 import geneticalgorithm2 as ga
+from geneticalgorithm2 import Actions, ActionConditions, Callbacks, MiddleCallbacks
+from geneticalgorithm2 import Crossover, Mutations
 from sklearn.model_selection import cross_val_score
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import SelectPercentile
@@ -17,6 +19,9 @@ from sklearn.model_selection import RepeatedKFold
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.svm import SVC, LinearSVC
 from genetic_selection import GeneticSelectionCV
+from thompson_sampling.poisson import PoissonExperiment
+from thompson_sampling.priors import GammaPrior
+from pandas import Series
 import click
 import numpy as np
 import pandas as pd
@@ -129,8 +134,9 @@ class Easc:
     def genetic_algorithm(self):
         varbound = np.array([[1.0, 5.0], [1, 4], [0, 5], [
                             1.0, 5.0], [0.0, 5.0], [0, 1], [0, 1]])
-        vartype = np.array([['real'], ['int'], ['int'], [
-                        'real'], ['real'], ['int'], ['int']])
+        vartype = np.array(['real', 'int', 'int', 'real', 'real', 'int', 'int'])
+
+        experiment = self.thompson_sampling_create_experiment(3, ["uniform", "one_point", "two_point"])
 
         algorithm_parameters = {'max_num_iteration': 100,
                                 'population_size': 10,
@@ -138,7 +144,7 @@ class Easc:
                                 'elit_ratio': 0.01,
                                 'crossover_probability': 0.5,
                                 'parents_portion': 0.3,
-                                'crossover_type': 'uniform',
+                                'crossover_type': experiment.choose_arm(),
                                 'max_iteration_without_improv': 5}
         model = ga(
             algorithm_parameters=algorithm_parameters,
@@ -146,23 +152,84 @@ class Easc:
             dimension=7,
             variable_type_mixed=vartype,
             variable_boundaries=varbound,
-            convergence_curve=False,
-            progress_bar=False,
             function_timeout=60
         )
 
-        model.run()
+        model.run(
+            no_plot=True,
+            disable_progress_bar=True,
+            disable_printing=True,
+            middle_callbacks=[
+                MiddleCallbacks.UniversalCallback(
+                    action=self.thompson_sampling_get_crossover(experiment),
+                    condition=ActionConditions.Always(),
+                    set_data_after_callback=True
+                ),
+                MiddleCallbacks.UniversalCallback(
+                    action=self.thompson_sampling_update_distribution(experiment),
+                    condition=ActionConditions.Always(),
+                    set_data_after_callback=False
+                )
+            ],
+        )
 
         self.best_parameters = model.best_variable
 
+    def thompson_sampling_create_experiment(self, numberOfMachines, labels):
+        means = Series([100] * numberOfMachines)
+        variances = Series([100] * numberOfMachines)
+        effective_sizes = Series([None] * numberOfMachines)
+        labels = Series(labels)
+
+        pr = GammaPrior()
+        pr.add_multiple(means, variances, effective_sizes, labels)
+
+        return PoissonExperiment(priors = pr)
+
+    def thompson_sampling_get_crossover(self, experiment):
+        def func(data):
+            data.crossover_type = experiment.choose_arm()
+
+            return data
+
+        return func
+
+    def thompson_sampling_update_distribution(self, experiment):
+        def func(data):
+            best_score = (-1) * np.min(data.last_generation.scores)
+
+            experiment.add_rewards([{"label":data.crossover_type, "reward":best_score}])
+
+            return data
+
+        return func
+
     def differential_evolution(self):
         bounds = [(1.0, 5.0), (1, 4), (0, 5), (1.0, 5.0), (0.0, 5.0), (0, 1), (0, 1)]
+
+        experiment = self.thompson_sampling_create_experiment(
+            12,
+            [
+                'best1bin'
+                'best1exp'
+                'rand1exp'
+                'randtobest1exp'
+                'currenttobest1exp'
+                'best2exp'
+                'rand2exp'
+                'randtobest1bin'
+                'currenttobest1bin'
+                'best2bin'
+                'rand2bin'
+                'rand1bin'
+            ]
+        )
 
         self.best_parameters = differential_evolution(
             func=self.classifier,
             bounds=bounds,
             args=(),
-            strategy='rand1bin',
+            strategy=experiment.choose_arm(),
             maxiter=100,
             popsize=10,
             tol=0.01,
