@@ -1,8 +1,7 @@
-mlxtend==0.18.0
 sklearn_genetic==0.4.1
-geneticalgorithm==1.0.2
-scipy==1.6.3
-matplotlib==3.4.1
-numpy==1.18.4
 pandas==1.2.4
+scipy==1.6.3
+geneticalgorithm==1.0.2
+click==7.1.2
+numpy==1.19.5
 scikit_learn==0.24.2
