@@ -3,8 +3,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.feature_selection import VarianceThreshold
-from geneticalgorithm import geneticalgorithm as ga
-from sklearn.model_selection import cross_val_score
+from geneticalgorithm2 import geneticalgorithm2 as ga
+from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score
+from imblearn.metrics import geometric_mean_score, sensitivity_score, specificity_score
+from sklearn.model_selection import cross_validate
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import SelectPercentile
 from sklearn.feature_selection import SelectFpr
@@ -31,6 +33,14 @@ class Easc:
         self.testSize = testSize
         self.kernel = kernel
         self.imputerStrategy = imputerStrategy
+        self.sensitivity_score = None
+        self.specificity_score = None
+        self.recall_score = None
+        self.roc_aoc = None
+        self.confusion_matrix = None
+        self.precision_score = None
+        self.f1_score = None
+        self.g_mean_score = None
 
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
@@ -129,8 +139,8 @@ class Easc:
     def genetic_algorithm(self):
         varbound = np.array([[1.0, 5.0], [1, 4], [0, 5], [
                             1.0, 5.0], [0.0, 5.0], [0, 1], [0, 1]])
-        vartype = np.array([['real'], ['int'], ['int'], [
-                        'real'], ['real'], ['int'], ['int']])
+        vartype = np.array(['real', 'int', 'int',
+                        'real', 'real', 'int', 'int'])
 
         algorithm_parameters = {'max_num_iteration': 100,
                                 'population_size': 10,
@@ -143,15 +153,17 @@ class Easc:
         model = ga(
             algorithm_parameters=algorithm_parameters,
             function=self.classifier,
-            dimension=7,
+            dimension=len(varbound),
             variable_type_mixed=vartype,
             variable_boundaries=varbound,
-            convergence_curve=False,
-            progress_bar=False,
             function_timeout=60
         )
 
-        model.run()
+        model.run(
+            no_plot=True,
+            disable_progress_bar=True,
+            disable_printing=True,
+        )
 
         self.best_parameters = model.best_variable
 
@@ -225,15 +237,71 @@ class Easc:
             coef0=self.best_parameters[4],
             shrinking=self.best_parameters[5],
             break_ties=self.best_parameters[6],
+            probability=True
         )
 
         cv = RepeatedKFold(n_splits=10, n_repeats=10, random_state=1)
 
         self.best_svc.fit(self.samples_train, self.labels_train.values.ravel())
 
-        scores = cross_val_score(self.best_svc, self.samples, self.labels.values.ravel(), scoring='accuracy', cv=cv, n_jobs=-1)
+        self.scores = cross_validate(
+            self.best_svc,
+            self.samples,
+            self.labels.values.ravel(),
+            scoring='accuracy',
+            cv=cv,
+            n_jobs=-1,
+        )
 
-        self.accuracy = np.mean(scores)
+        predicted = self.best_svc.predict(self.samples_test)
+
+        self.accuracy = np.mean(self.scores['test_score'])
+
+        self.sensitivity_score = sensitivity_score(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+            pos_label='B'
+        )
+
+        self.specificity_score = specificity_score(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+            pos_label='B'
+        )
+
+        self.recall_score = recall_score(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+            pos_label='B'
+        )
+
+        self.roc_aoc = roc_auc_score(
+            y_true=np.ravel(self.labels_test),
+            y_score=self.best_svc.predict_proba(self.samples_test)[:, 1],
+        )
+
+        self.confusion_matrix = confusion_matrix(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+        )
+
+        self.precision_score = precision_score(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+            pos_label='B'
+        )
+
+        self.f1_score = f1_score(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+            pos_label='B'
+        )
+
+        self.g_mean_score = geometric_mean_score(
+            y_true=np.ravel(self.labels_test),
+            y_pred=np.ravel(predicted),
+            pos_label='B'
+        )
 
     def print_array(self, array):
         string = '[ '
@@ -253,8 +321,8 @@ class Easc:
         if (hasattr(self, 'feature_mask')):
             feature_mask = self.feature_mask
 
-        print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
-                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask))))
+        print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.confusion_matrix, self.precision_score, self.f1_score, self.g_mean_score))
 
     def run(self):
         self.start_time = time.time()
