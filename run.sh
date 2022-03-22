@@ -12,7 +12,13 @@ do
       for l in {1..30}
       do
         echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${l}, fs: ${feature_selection_methods[$k]}"
-        python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=$((k + 1)) --number_of_features_to_select=half --test_size=0.3 --kernel=dynamic --imputer_strategy=most_frequent >> "./results/${datasets[$i]}/${evolutionary_algorithms[$j]}/${feature_selection_methods[$k]}".txt
+
+        if [ $l = 1 ]; then
+          python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=$((k + 1)) --number_of_features_to_select=half --test_size=0.3 --kernel=dynamic --imputer_strategy=most_frequent --results_format=csv --print_header=1 >> "./results/${datasets[$i]}/${evolutionary_algorithms[$j]}/${feature_selection_methods[$k]}".csv
+        else
+          python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=$((k + 1)) --number_of_features_to_select=half --test_size=0.3 --kernel=dynamic --imputer_strategy=most_frequent --results_format=csv --print_header=0 >> "./results/${datasets[$i]}/${evolutionary_algorithms[$j]}/${feature_selection_methods[$k]}".csv
+        fi
+
         echo "Finalizado: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${l}, fs: ${feature_selection_methods[$k]}"
       done
     done
