@@ -25,7 +25,7 @@ import pandas as pd
 import time
 
 class Easc:
-    def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy):
+    def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy, resultsFormat, printHeader):
         self.evolutionaryAlgorithm = evolutionaryAlgorithm
         self.dataset = dataset
         self.featureSelection = featureSelection
@@ -41,6 +41,8 @@ class Easc:
         self.precision_score = None
         self.f1_score = None
         self.g_mean_score = None
+        self.results_format = resultsFormat
+        self.print_header = printHeader
 
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
@@ -316,13 +318,38 @@ class Easc:
 
         return string
 
+    def print_matrix(self, matrix):
+        string = ''
+
+        for i in range(len(matrix)):
+            string += '['
+            numbers = ''
+
+            for j in range(len(matrix[i])):
+                    numbers += (str(matrix[i][j]) + ' ')
+
+            string += numbers.strip(' ') + ']'
+
+        return string
+
     def print(self):
         feature_mask = []
         if (hasattr(self, 'feature_mask')):
             feature_mask = self.feature_mask
 
-        print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
-                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.confusion_matrix, self.precision_score, self.f1_score, self.g_mean_score))
+        if (self.results_format == 'txt'):
+            if (self.print_header == '1'):
+                print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score"))
+
+
+            print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score))
+        else:
+            if (self.print_header == '1'):
+                print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score"))
+
+            print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score))
 
     def run(self):
         self.start_time = time.time()
@@ -344,8 +371,10 @@ class Easc:
 @click.option("--test_size", default=0.3, prompt="Test size (0.1-1.0)", help="The percentual of the dataset do use in testing (0.0 to 1.0).")
 @click.option("--kernel", default='dynamic', prompt="Kernel (linear, poly, rbf, sigmoid or dynamic)", help="The kernel to use in the SVM, If None, the kernel will be choosen automatically.")
 @click.option("--imputer_strategy", default='most_frequent', prompt="Imputer strategy", help="The strategy to use in the Imputer to fill missing values.")
-def easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy):
-    easc = Easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy)
+@click.option("--results_format", default='txt', prompt="Output format", help="The format to output the results (csv or txt)")
+@click.option("--print_header", default='1', prompt="Print header", help="Print the header of the results (0 or 1)")
+def easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header):
+    easc = Easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header)
     easc.run()
 
 if __name__ == '__main__':
