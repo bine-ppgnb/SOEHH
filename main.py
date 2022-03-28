@@ -2,7 +2,6 @@ from scipy.optimize import differential_evolution
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.feature_selection import VarianceThreshold
 from geneticalgorithm2 import geneticalgorithm2 as ga
 from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score
 from imblearn.metrics import geometric_mean_score, sensitivity_score, specificity_score
@@ -104,30 +103,29 @@ class Easc:
             number_of_features_to_select = int(self.numberOfFeaturesToSelect)
 
         feature_selectors = {
-            1: VarianceThreshold(threshold=(.8 * (1 - .8))),
-            2: SelectKBest(k=number_of_features_to_select),
-            3: SelectPercentile(percentile=50),
-            4: SelectFpr(),
-            5: SelectFdr(),
-            6: SelectFwe(),
-            7: SequentialFeatureSelector(LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, direction='forward'),
-            8: SequentialFeatureSelector(LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, direction='backward'),
-            9: SelectFromModel(ExtraTreesClassifier(n_estimators=50), max_features=number_of_features_to_select),
-            10: RFE(estimator=LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, step=1),
-            11: GeneticSelectionCV(
+            1: SelectKBest(k=number_of_features_to_select),
+            2: SelectPercentile(percentile=50),
+            3: SelectFpr(),
+            4: SelectFdr(),
+            5: SelectFwe(),
+            6: SequentialFeatureSelector(LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, direction='forward'),
+            7: SequentialFeatureSelector(LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, direction='backward'),
+            9: SelectFromModel(ExtraTreesClassifier(n_estimators=100), max_features=number_of_features_to_select),
+            9: RFE(estimator=LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, step=1),
+            10: GeneticSelectionCV(
                 LinearSVC(dual=False),
-                cv=5,
+                cv=10,
                 verbose=0,
                 scoring="accuracy",
-                max_features=5,
-                n_population=50,
+                max_features=number_of_features_to_select,
+                n_population=150,
                 crossover_proba=0.5,
-                mutation_proba=0.2,
-                n_generations=40,
+                mutation_proba=0.1,
+                n_generations=100,
                 crossover_independent_proba=0.5,
                 mutation_independent_proba=0.05,
                 tournament_size=3,
-                n_gen_no_change=2,
+                n_gen_no_change=5,
                 caching=True,
                 n_jobs=-1,
             )
@@ -139,13 +137,18 @@ class Easc:
             return None
 
     def genetic_algorithm(self):
-        varbound = np.array([[1.0, 5.0], [1, 4], [0, 5], [
-                            1.0, 5.0], [0.0, 5.0], [0, 1], [0, 1]])
-        vartype = np.array(['real', 'int', 'int',
-                        'real', 'real', 'int', 'int'])
+        varbound = np.array([
+            [2e-10, 2e5],
+            [1, 4],
+            [2, 5],
+            [2e-10, 2e5],
+            [2e-10, 2e5]
+        ])
+
+        vartype = np.array(['real', 'int', 'int', 'real', 'real'])
 
         algorithm_parameters = {'max_num_iteration': 100,
-                                'population_size': 10,
+                                'population_size': 150,
                                 'mutation_probability': 0.1,
                                 'elit_ratio': 0.01,
                                 'crossover_probability': 0.5,
@@ -170,7 +173,13 @@ class Easc:
         self.best_parameters = model.best_variable
 
     def differential_evolution(self):
-        bounds = [(1.0, 5.0), (1, 4), (0, 5), (1.0, 5.0), (0.0, 5.0), (0, 1), (0, 1)]
+        bounds = [
+            (2e-10, 2e5),
+            (1, 4),
+            (2, 5),
+            (2e-10, 2e5),
+            (2e-10, 2e5),
+        ]
 
         self.best_parameters = differential_evolution(
             func=self.classifier,
@@ -178,10 +187,10 @@ class Easc:
             args=(),
             strategy='rand1bin',
             maxiter=100,
-            popsize=10,
+            popsize=150,
             tol=0.01,
             mutation=(0.5, 1),
-            recombination=0.7,
+            recombination=0.5,
             seed=None,
             disp=False,
             polish=True,
@@ -220,8 +229,6 @@ class Easc:
             degree=X[2],
             gamma=X[3],
             coef0=X[4],
-            shrinking=X[5],
-            break_ties=X[6],
         )
 
         svc.fit(self.samples_train, self.labels_train.values.ravel())
@@ -237,8 +244,6 @@ class Easc:
             degree=self.best_parameters[2],
             gamma=self.best_parameters[3],
             coef0=self.best_parameters[4],
-            shrinking=self.best_parameters[5],
-            break_ties=self.best_parameters[6],
             probability=True
         )
 
