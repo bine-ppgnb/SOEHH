@@ -1,8 +1,9 @@
-from scipy.optimize import differential_evolution
+from scipy.optimize._differentialevolution import DifferentialEvolutionSolver
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from geneticalgorithm2 import geneticalgorithm2 as ga
+from geneticalgorithm2 import Crossover
 from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score
 from imblearn.metrics import geometric_mean_score, sensitivity_score, specificity_score
 from sklearn.model_selection import cross_validate
@@ -18,6 +19,8 @@ from sklearn.model_selection import RepeatedKFold
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.svm import SVC, LinearSVC
 from genetic_selection import GeneticSelectionCV
+from thompson_sampling.bernoulli import BernoulliExperiment
+from thompson_sampling.priors import BetaPrior
 import click
 import numpy as np
 import pandas as pd
@@ -42,6 +45,7 @@ class Easc:
         self.g_mean_score = None
         self.results_format = resultsFormat
         self.print_header = printHeader
+        self.experiment = None
 
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
@@ -136,7 +140,74 @@ class Easc:
         else:
             return None
 
+    def thompson_sampling_update_score(self, choosen_crossover, parent, child):
+        parent_fitness = self.classifier(parent) * -1;
+        child_fitness = self.classifier(child) * -1;
+
+        if (child_fitness > parent_fitness):
+            self.experiment.add_rewards([{"label": choosen_crossover, "reward": 1}])
+        else:
+            self.experiment.add_rewards([{"label": choosen_crossover, "reward": 0}])
+
+    def thompson_sampling_create_experiment(self, numberOfMachines, labels):
+        return BernoulliExperiment(arms=numberOfMachines, labels=labels)
+
+    def thompson_sampling_ga_crossover(self, x: np.ndarray, y: np.ndarray):
+        crossovers = {
+            'one_point': Crossover.one_point(),
+            'two_point': Crossover.two_point(),
+            'uniform': Crossover.uniform(),
+            'uniform_window': Crossover.uniform_window(np.random.randint(1, x.size / 2)),
+            'shuffle': Crossover.shuffle(),
+            'segment': Crossover.segment(),
+        }
+
+        choosen_crossover = self.experiment.choose_arm()
+
+        child_x, child_y = crossovers[choosen_crossover](x, y)
+
+        self.thompson_sampling_update_score(choosen_crossover, x, child_x)
+        self.thompson_sampling_update_score(choosen_crossover, y, child_y)
+
+        return child_x, child_y
+
+    def custom_differential_evolution(func, bounds, args=(), strategy='best1bin',
+                           maxiter=1000, popsize=15, tol=0.01,
+                           mutation=(0.5, 1), recombination=0.7, seed=None,
+                           callback=None, disp=False, polish=True,
+                           init='latinhypercube', atol=0, updating='immediate',
+                           workers=1, constraints=()):
+        # using a context manager means that any created Pool objects are
+        # cleared up.
+        with DifferentialEvolutionSolver(func, bounds, args=args,
+                                        strategy=strategy,
+                                        maxiter=maxiter,
+                                        popsize=popsize, tol=tol,
+                                        mutation=mutation,
+                                        recombination=recombination,
+                                        seed=seed, polish=polish,
+                                        callback=callback,
+                                        disp=disp, init=init, atol=atol,
+                                        updating=updating,
+                                        workers=workers,
+                                        constraints=constraints) as solver:
+            ret = solver.solve()
+
+        return ret
+
     def genetic_algorithm(self):
+        self.experiment = self.thompson_sampling_create_experiment(
+            6,
+            [
+                'one_point',
+                'two_point',
+                'uniform',
+                'uniform_window',
+                'shuffle',
+                'segment',
+            ],
+        )
+
         varbound = np.array([
             [2e-10, 2e5],
             [1, 4],
@@ -153,7 +224,7 @@ class Easc:
                                 'elit_ratio': 0.01,
                                 'crossover_probability': 0.5,
                                 'parents_portion': 0.3,
-                                'crossover_type': 'uniform',
+                                'crossover_type': self.thompson_sampling_ga_crossover,
                                 'max_iteration_without_improv': 5}
         model = ga(
             algorithm_parameters=algorithm_parameters,
@@ -161,7 +232,7 @@ class Easc:
             dimension=len(varbound),
             variable_type_mixed=vartype,
             variable_boundaries=varbound,
-            function_timeout=60
+            function_timeout=60,
         )
 
         model.run(
@@ -173,6 +244,24 @@ class Easc:
         self.best_parameters = model.best_variable
 
     def differential_evolution(self):
+        self.experiment = self.thompson_sampling_create_experiment(
+            12,
+            [
+                'best1bin'
+                'best1exp'
+                'rand1exp'
+                'randtobest1exp'
+                'currenttobest1exp'
+                'best2exp'
+                'rand2exp'
+                'randtobest1bin'
+                'currenttobest1bin'
+                'best2bin'
+                'rand2bin'
+                'rand1bin'
+            ]
+        )
+
         bounds = [
             (2e-10, 2e5),
             (1, 4),
@@ -181,7 +270,7 @@ class Easc:
             (2e-10, 2e5),
         ]
 
-        self.best_parameters = differential_evolution(
+        self.best_parameters = self.custom_differential_evolution(
             func=self.classifier,
             bounds=bounds,
             args=(),
