@@ -1,10 +1,11 @@
 from scipy.optimize._differentialevolution import DifferentialEvolutionSolver
+from scipy.optimize import differential_evolution
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from geneticalgorithm2 import geneticalgorithm2 as ga
 from geneticalgorithm2 import Crossover
-from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score
+from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score, accuracy_score
 from imblearn.metrics import geometric_mean_score, sensitivity_score, specificity_score
 from sklearn.model_selection import cross_validate
 from sklearn.feature_selection import SelectKBest
@@ -15,7 +16,7 @@ from sklearn.feature_selection import SelectFwe
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.feature_selection import SelectFromModel
 from sklearn.feature_selection import RFE
-from sklearn.model_selection import RepeatedKFold
+from sklearn.model_selection import KFold
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.svm import SVC, LinearSVC
 from genetic_selection import GeneticSelectionCV
@@ -26,8 +27,33 @@ import numpy as np
 import pandas as pd
 import time
 
+def custom_differential_evolution(func, bounds, args=(), strategy='best1bin',
+                           maxiter=1000, popsize=15, tol=0.01,
+                           mutation=(0.5, 1), recombination=0.7, seed=None,
+                           callback=None, disp=False, polish=True,
+                           init='latinhypercube', atol=0, updating='immediate',
+                           workers=1, constraints=(), maxfun=np.inf):
+        # using a context manager means that any created Pool objects are
+        # cleared up.
+        with DifferentialEvolutionSolver(func, bounds, args=args,
+                                     strategy=strategy,
+                                     maxiter=maxiter,
+                                     popsize=popsize, tol=tol,
+                                     mutation=mutation,
+                                     recombination=recombination,
+                                     seed=seed, polish=polish,
+                                     callback=callback,
+                                     disp=disp, init=init, atol=atol,
+                                     updating=updating,
+                                     workers=workers,
+                                     constraints=constraints,
+                                     maxfun=maxfun) as solver:
+            ret = solver.solve()
+
+        return ret
+
 class Easc:
-    def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy, resultsFormat, printHeader):
+    def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy, resultsFormat, printHeader, crossValidate):
         self.evolutionaryAlgorithm = evolutionaryAlgorithm
         self.dataset = dataset
         self.featureSelection = featureSelection
@@ -46,6 +72,7 @@ class Easc:
         self.results_format = resultsFormat
         self.print_header = printHeader
         self.experiment = None
+        self.crossValidate = crossValidate
 
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
@@ -72,7 +99,7 @@ class Easc:
         samples_train, samples_test, labels_train, labels_test = train_test_split(
             self.samples,
             self.labels,
-            test_size=self.testSize,
+            test_size=float(self.testSize),
         )
 
         self.samples_train = samples_train
@@ -114,7 +141,7 @@ class Easc:
             5: SelectFwe(),
             6: SequentialFeatureSelector(LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, direction='forward'),
             7: SequentialFeatureSelector(LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, direction='backward'),
-            9: SelectFromModel(ExtraTreesClassifier(n_estimators=100), max_features=number_of_features_to_select),
+            8: SelectFromModel(ExtraTreesClassifier(n_estimators=100), max_features=number_of_features_to_select),
             9: RFE(estimator=LinearSVC(dual=False), n_features_to_select=number_of_features_to_select, step=1),
             10: GeneticSelectionCV(
                 LinearSVC(dual=False),
@@ -122,11 +149,11 @@ class Easc:
                 verbose=0,
                 scoring="accuracy",
                 max_features=number_of_features_to_select,
-                n_population=150,
-                crossover_proba=0.5,
-                mutation_proba=0.1,
+                n_population=30,
+                crossover_proba=0.95,
+                mutation_proba=0.01,
                 n_generations=100,
-                crossover_independent_proba=0.5,
+                crossover_independent_proba=0.1,
                 mutation_independent_proba=0.05,
                 tournament_size=3,
                 n_gen_no_change=5,
@@ -171,42 +198,18 @@ class Easc:
 
         return child_x, child_y
 
-    def custom_differential_evolution(func, bounds, args=(), strategy='best1bin',
-                           maxiter=1000, popsize=15, tol=0.01,
-                           mutation=(0.5, 1), recombination=0.7, seed=None,
-                           callback=None, disp=False, polish=True,
-                           init='latinhypercube', atol=0, updating='immediate',
-                           workers=1, constraints=()):
-        # using a context manager means that any created Pool objects are
-        # cleared up.
-        with DifferentialEvolutionSolver(func, bounds, args=args,
-                                        strategy=strategy,
-                                        maxiter=maxiter,
-                                        popsize=popsize, tol=tol,
-                                        mutation=mutation,
-                                        recombination=recombination,
-                                        seed=seed, polish=polish,
-                                        callback=callback,
-                                        disp=disp, init=init, atol=atol,
-                                        updating=updating,
-                                        workers=workers,
-                                        constraints=constraints) as solver:
-            ret = solver.solve()
-
-        return ret
-
     def genetic_algorithm(self):
-        self.experiment = self.thompson_sampling_create_experiment(
-            6,
-            [
-                'one_point',
-                'two_point',
-                'uniform',
-                'uniform_window',
-                'shuffle',
-                'segment',
-            ],
-        )
+        # self.experiment = self.thompson_sampling_create_experiment(
+        #     6,
+        #     [
+        #         'one_point',
+        #         'two_point',
+        #         'uniform',
+        #         'uniform_window',
+        #         'shuffle',
+        #         'segment',
+        #     ],
+        # )
 
         varbound = np.array([
             [2e-10, 2e5],
@@ -218,14 +221,15 @@ class Easc:
 
         vartype = np.array(['real', 'int', 'int', 'real', 'real'])
 
-        algorithm_parameters = {'max_num_iteration': 100,
-                                'population_size': 150,
-                                'mutation_probability': 0.1,
-                                'elit_ratio': 0.01,
-                                'crossover_probability': 0.5,
+        algorithm_parameters = {'max_num_iteration': 500,
+                                'population_size': 30,
+                                'mutation_probability': 0.01,
+                                'elit_ratio': 0.00,
+                                'crossover_probability': 0.95,
                                 'parents_portion': 0.3,
-                                'crossover_type': self.thompson_sampling_ga_crossover,
-                                'max_iteration_without_improv': 5}
+                                'crossover_type': 'one_point',
+                                'max_iteration_without_improv': 10,
+                                'selection_type': 'roulette'}
         model = ga(
             algorithm_parameters=algorithm_parameters,
             function=self.classifier,
@@ -244,23 +248,23 @@ class Easc:
         self.best_parameters = model.best_variable
 
     def differential_evolution(self):
-        self.experiment = self.thompson_sampling_create_experiment(
-            12,
-            [
-                'best1bin'
-                'best1exp'
-                'rand1exp'
-                'randtobest1exp'
-                'currenttobest1exp'
-                'best2exp'
-                'rand2exp'
-                'randtobest1bin'
-                'currenttobest1bin'
-                'best2bin'
-                'rand2bin'
-                'rand1bin'
-            ]
-        )
+        # self.experiment = self.thompson_sampling_create_experiment(
+        #     12,
+        #     [
+        #         'best1bin'
+        #         'best1exp'
+        #         'rand1exp'
+        #         'randtobest1exp'
+        #         'currenttobest1exp'
+        #         'best2exp'
+        #         'rand2exp'
+        #         'randtobest1bin'
+        #         'currenttobest1bin'
+        #         'best2bin'
+        #         'rand2bin'
+        #         'rand1bin'
+        #     ]
+        # )
 
         bounds = [
             (2e-10, 2e5),
@@ -270,20 +274,21 @@ class Easc:
             (2e-10, 2e5),
         ]
 
-        self.best_parameters = self.custom_differential_evolution(
+        self.best_parameters = custom_differential_evolution(
             func=self.classifier,
             bounds=bounds,
             args=(),
             strategy='rand1bin',
-            maxiter=100,
-            popsize=150,
+            maxiter=500,
+            popsize=20,
             tol=0.01,
-            mutation=(0.5, 1),
-            recombination=0.5,
+            mutation=0.9314,
+            recombination=0.6938,
             seed=None,
             disp=False,
             polish=True,
             init='random',
+            maxfun=10000,
         ).x
 
     def classify_dataset(self):
@@ -336,22 +341,25 @@ class Easc:
             probability=True
         )
 
-        cv = RepeatedKFold(n_splits=10, n_repeats=10, random_state=1)
-
         self.best_svc.fit(self.samples_train, self.labels_train.values.ravel())
 
-        self.scores = cross_validate(
-            self.best_svc,
-            self.samples,
-            self.labels.values.ravel(),
-            scoring='accuracy',
-            cv=cv,
-            n_jobs=-1,
-        )
+        if (self.crossValidate == '1'):
+            cv = KFold(n_splits=10)
+
+            self.scores = cross_validate(
+                self.best_svc,
+                self.samples,
+                self.labels.values.ravel(),
+                scoring='accuracy',
+                cv=cv,
+                n_jobs=-1,
+            )
+
+            self.accuracy = np.mean(self.scores['test_score'])
+        else:
+            self.accuracy = self.best_svc.score(self.samples_test, self.labels_test)
 
         predicted = self.best_svc.predict(self.samples_test)
-
-        self.accuracy = np.mean(self.scores['test_score'])
 
         self.sensitivity_score = sensitivity_score(
             y_true=np.ravel(self.labels_test),
@@ -467,8 +475,9 @@ class Easc:
 @click.option("--imputer_strategy", default='most_frequent', prompt="Imputer strategy", help="The strategy to use in the Imputer to fill missing values.")
 @click.option("--results_format", default='txt', prompt="Output format", help="The format to output the results (csv or txt)")
 @click.option("--print_header", default='1', prompt="Print header", help="Print the header of the results (0 or 1)")
-def easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header):
-    easc = Easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header)
+@click.option("--cross_validate", default='1', prompt="Cross validation (0 or 1)", help="Execute cross validation or not")
+def easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header, cross_validate):
+    easc = Easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header, cross_validate)
     easc.run()
 
 if __name__ == '__main__':
