@@ -1,5 +1,4 @@
-from scipy.optimize._differentialevolution import DifferentialEvolutionSolver
-from scipy.optimize import differential_evolution
+from differential_evolution import differential_evolution
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
@@ -27,33 +26,8 @@ import numpy as np
 import pandas as pd
 import time
 
-def custom_differential_evolution(func, bounds, args=(), strategy='best1bin',
-                           maxiter=1000, popsize=15, tol=0.01,
-                           mutation=(0.5, 1), recombination=0.7, seed=None,
-                           callback=None, disp=False, polish=True,
-                           init='latinhypercube', atol=0, updating='immediate',
-                           workers=1, constraints=(), maxfun=np.inf):
-        # using a context manager means that any created Pool objects are
-        # cleared up.
-        with DifferentialEvolutionSolver(func, bounds, args=args,
-                                     strategy=strategy,
-                                     maxiter=maxiter,
-                                     popsize=popsize, tol=tol,
-                                     mutation=mutation,
-                                     recombination=recombination,
-                                     seed=seed, polish=polish,
-                                     callback=callback,
-                                     disp=disp, init=init, atol=atol,
-                                     updating=updating,
-                                     workers=workers,
-                                     constraints=constraints,
-                                     maxfun=maxfun) as solver:
-            ret = solver.solve()
-
-        return ret
-
 class Easc:
-    def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy, resultsFormat, printHeader, crossValidate):
+    def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy, resultsFormat, printHeader, crossValidate, thompsonSampling):
         self.evolutionaryAlgorithm = evolutionaryAlgorithm
         self.dataset = dataset
         self.featureSelection = featureSelection
@@ -71,8 +45,11 @@ class Easc:
         self.g_mean_score = None
         self.results_format = resultsFormat
         self.print_header = printHeader
-        self.experiment = None
+        self.thompsonSamplingExperiment = None
         self.crossValidate = crossValidate
+        self.thompsonSampling = thompsonSampling
+        self.thompsonSamplingExperiment = None
+        self.thompsonSamplingLastChoice = None
 
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
@@ -167,14 +144,56 @@ class Easc:
         else:
             return None
 
+    def thompson_sampling_init_experiment(self):
+        if (int(self.thompsonSampling) == 0):
+            return
+
+        if self.evolutionaryAlgorithm == 'ga':
+            self.thompsonSamplingExperiment = self.thompson_sampling_create_experiment(
+                6,
+                [
+                    'one_point',
+                    'two_point',
+                    'uniform',
+                    'uniform_window',
+                    'shuffle',
+                    'segment',
+                ],
+            )
+        else:
+            self.thompsonSamplingExperiment = self.thompson_sampling_create_experiment(
+                12,
+                [
+                    'best1bin',
+                    'best1exp',
+                    'rand1exp',
+                    'randtobest1exp',
+                    'currenttobest1exp',
+                    'best2exp',
+                    'rand2exp',
+                    'randtobest1bin',
+                    'currenttobest1bin',
+                    'best2bin',
+                    'rand2bin',
+                    'rand1bin'
+                ]
+            )
+
     def thompson_sampling_update_score(self, choosen_crossover, parent, child):
-        parent_fitness = self.classifier(parent) * -1;
-        child_fitness = self.classifier(child) * -1;
+        if isinstance(parent, float):
+            parent_fitness = parent * -1
+        else:
+            parent_fitness = self.classifier(parent) * -1
+
+        if isinstance(child, float):
+            child_fitness = child * -1
+        else:
+            child_fitness = self.classifier(child) * -1
 
         if (child_fitness > parent_fitness):
-            self.experiment.add_rewards([{"label": choosen_crossover, "reward": 1}])
+            self.thompsonSamplingExperiment.add_rewards([{"label": choosen_crossover, "reward": 1}])
         else:
-            self.experiment.add_rewards([{"label": choosen_crossover, "reward": 0}])
+            self.thompsonSamplingExperiment.add_rewards([{"label": choosen_crossover, "reward": 0}])
 
     def thompson_sampling_create_experiment(self, numberOfMachines, labels):
         return BernoulliExperiment(arms=numberOfMachines, labels=labels)
@@ -189,7 +208,9 @@ class Easc:
             'segment': Crossover.segment(),
         }
 
-        choosen_crossover = self.experiment.choose_arm()
+        choosen_crossover = self.thompsonSamplingExperiment.choose_arm()
+
+        self.thompsonSamplingLastChoice = choosen_crossover
 
         child_x, child_y = crossovers[choosen_crossover](x, y)
 
@@ -198,19 +219,17 @@ class Easc:
 
         return child_x, child_y
 
-    def genetic_algorithm(self):
-        # self.experiment = self.thompson_sampling_create_experiment(
-        #     6,
-        #     [
-        #         'one_point',
-        #         'two_point',
-        #         'uniform',
-        #         'uniform_window',
-        #         'shuffle',
-        #         'segment',
-        #     ],
-        # )
+    def thompson_sampling_de_mutation(self):
+        choosen_mutation = self.thompsonSamplingExperiment.choose_arm()
 
+        self.thompsonSamplingLastChoice = choosen_mutation
+
+        return choosen_mutation
+
+    def thompson_sampling_de_mutation_callback(self, candidateFitness, trialFitness):
+        self.thompson_sampling_update_score(self.thompsonSamplingLastChoice, candidateFitness, trialFitness)
+
+    def genetic_algorithm(self):
         varbound = np.array([
             [2e-10, 2e5],
             [1, 4],
@@ -221,13 +240,18 @@ class Easc:
 
         vartype = np.array(['real', 'int', 'int', 'real', 'real'])
 
+        if int(self.thompsonSampling) == 1:
+            crossover = self.thompson_sampling_ga_crossover
+        else:
+            crossover = 'one_point'
+
         algorithm_parameters = {'max_num_iteration': 500,
                                 'population_size': 30,
                                 'mutation_probability': 0.01,
                                 'elit_ratio': 0.00,
                                 'crossover_probability': 0.95,
                                 'parents_portion': 0.3,
-                                'crossover_type': 'one_point',
+                                'crossover_type': crossover,
                                 'max_iteration_without_improv': 10,
                                 'selection_type': 'roulette'}
         model = ga(
@@ -241,31 +265,13 @@ class Easc:
 
         model.run(
             no_plot=True,
-            disable_progress_bar=True,
-            disable_printing=True,
+            disable_progress_bar=False,
+            disable_printing=False,
         )
 
         self.best_parameters = model.best_variable
 
     def differential_evolution(self):
-        # self.experiment = self.thompson_sampling_create_experiment(
-        #     12,
-        #     [
-        #         'best1bin'
-        #         'best1exp'
-        #         'rand1exp'
-        #         'randtobest1exp'
-        #         'currenttobest1exp'
-        #         'best2exp'
-        #         'rand2exp'
-        #         'randtobest1bin'
-        #         'currenttobest1bin'
-        #         'best2bin'
-        #         'rand2bin'
-        #         'rand1bin'
-        #     ]
-        # )
-
         bounds = [
             (2e-10, 2e5),
             (1, 4),
@@ -274,15 +280,23 @@ class Easc:
             (2e-10, 2e5),
         ]
 
-        self.best_parameters = custom_differential_evolution(
+        if int(self.thompsonSampling) == 1:
+            mutationCallback = self.thompson_sampling_de_mutation_callback
+            strategy = self.thompson_sampling_de_mutation
+        else:
+            mutationCallback = None
+            strategy = 'rand1bin'
+
+        self.best_parameters = differential_evolution(
             func=self.classifier,
             bounds=bounds,
             args=(),
-            strategy='rand1bin',
+            strategy=strategy,
             maxiter=500,
             popsize=20,
             tol=0.01,
             mutation=0.9314,
+            mutation_callback=mutationCallback,
             recombination=0.6938,
             seed=None,
             disp=False,
@@ -325,13 +339,28 @@ class Easc:
             coef0=X[4],
         )
 
+        print(self.samples_train)
+        print(self.labels_train.values.ravel())
+
         svc.fit(self.samples_train, self.labels_train.values.ravel())
 
         accuracy = svc.score(self.samples_test, self.labels_test)
 
         return -accuracy
 
-    def calculate_accuracy(self):
+    def get_pos_label(self):
+        mapping = {
+            "winsconsin_569_32_normalizado": "B",
+            "winsconsin_699_10_normalizado": "B",
+            "coimbra_116_10_normalizado": "H",
+            "winsconsin_198_34_normalizado": "N"
+        }
+
+        datasetName = self.dataset.split("/")[-1].split(".")[0]
+
+        return mapping[datasetName]
+
+    def calculate_metrics(self):
         self.best_svc = SVC(
             C=self.best_parameters[0],
             kernel=self.get_kernel(self.best_parameters[1]),
@@ -364,19 +393,19 @@ class Easc:
         self.sensitivity_score = sensitivity_score(
             y_true=np.ravel(self.labels_test),
             y_pred=np.ravel(predicted),
-            pos_label='B'
+            pos_label=self.get_pos_label()
         )
 
         self.specificity_score = specificity_score(
             y_true=np.ravel(self.labels_test),
             y_pred=np.ravel(predicted),
-            pos_label='B'
+            pos_label=self.get_pos_label()
         )
 
         self.recall_score = recall_score(
             y_true=np.ravel(self.labels_test),
             y_pred=np.ravel(predicted),
-            pos_label='B'
+            pos_label=self.get_pos_label()
         )
 
         self.roc_aoc = roc_auc_score(
@@ -392,19 +421,19 @@ class Easc:
         self.precision_score = precision_score(
             y_true=np.ravel(self.labels_test),
             y_pred=np.ravel(predicted),
-            pos_label='B'
+            pos_label=self.get_pos_label()
         )
 
         self.f1_score = f1_score(
             y_true=np.ravel(self.labels_test),
             y_pred=np.ravel(predicted),
-            pos_label='B'
+            pos_label=self.get_pos_label()
         )
 
         self.g_mean_score = geometric_mean_score(
             y_true=np.ravel(self.labels_test),
             y_pred=np.ravel(predicted),
-            pos_label='B'
+            pos_label=self.get_pos_label()
         )
 
     def print_array(self, array):
@@ -460,8 +489,9 @@ class Easc:
         self.scale_dataset()
         self.split_dataset()
         self.feature_selection()
+        self.thompson_sampling_init_experiment()
         self.classify_dataset()
-        self.calculate_accuracy()
+        self.calculate_metrics()
         self.end_time = time.time()
         self.print()
 
@@ -476,8 +506,9 @@ class Easc:
 @click.option("--results_format", default='txt', prompt="Output format", help="The format to output the results (csv or txt)")
 @click.option("--print_header", default='1', prompt="Print header", help="Print the header of the results (0 or 1)")
 @click.option("--cross_validate", default='1', prompt="Cross validation (0 or 1)", help="Execute cross validation or not")
-def easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header, cross_validate):
-    easc = Easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header, cross_validate)
+@click.option("--thompson_sampling", default='0', prompt="Thompson sampling (0 or 1)", help="Use thompson sampling or not")
+def easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header, cross_validate, thompson_sampling):
+    easc = Easc(evolutionary_algorithm, dataset, feature_selection, number_of_features_to_select, test_size, kernel, imputer_strategy, results_format, print_header, cross_validate, thompson_sampling)
     easc.run()
 
 if __name__ == '__main__':
