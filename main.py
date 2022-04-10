@@ -4,9 +4,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from geneticalgorithm2 import geneticalgorithm2 as ga
 from geneticalgorithm2 import Crossover
-from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score, accuracy_score
+from sklearn.metrics import confusion_matrix, recall_score, roc_auc_score, precision_score, f1_score
 from imblearn.metrics import geometric_mean_score, sensitivity_score, specificity_score
-from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_val_score
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import SelectPercentile
 from sklearn.feature_selection import SelectFpr
@@ -18,13 +18,15 @@ from sklearn.feature_selection import RFE
 from sklearn.model_selection import KFold
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.svm import SVC, LinearSVC
+from sklearnex import patch_sklearn
 from genetic_selection import GeneticSelectionCV
 from thompson_sampling.bernoulli import BernoulliExperiment
-from thompson_sampling.priors import BetaPrior
 import click
 import numpy as np
 import pandas as pd
 import time
+
+patch_sklearn(verbose=0)
 
 class Easc:
     def __init__(self, evolutionaryAlgorithm, dataset, featureSelection, numberOfFeaturesToSelect, testSize, kernel, imputerStrategy, resultsFormat, printHeader, crossValidate, thompsonSampling):
@@ -74,6 +76,9 @@ class Easc:
         self.samples = StandardScaler().fit_transform(self.samples)
 
     def split_dataset(self):
+        if (int(self.crossValidate) == 1):
+            return
+
         samples_train, samples_test, labels_train, labels_test = train_test_split(
             self.samples,
             self.labels,
@@ -91,7 +96,10 @@ class Easc:
 
         selector = self.get_feature_selector()
 
-        selector.fit_transform(self.samples_train, self.labels_train.values.ravel())
+        if (int(self.crossValidate)):
+            selector.fit_transform(self.samples, self.labels.values.ravel())
+        else:
+            selector.fit_transform(self.samples_train, self.labels_train.values.ravel())
 
         self.feature_mask = selector._get_support_mask()
 
@@ -348,11 +356,26 @@ class Easc:
             degree=X[2],
             gamma=X[3],
             coef0=X[4],
+            max_iter=100_000
         )
 
-        svc.fit(self.samples_train, self.labels_train.values.ravel())
+        if (int(self.crossValidate) == 1):
+            cv = KFold(n_splits=10)
 
-        accuracy = svc.score(self.samples_test, self.labels_test)
+            scores = cross_val_score(
+                svc,
+                self.samples,
+                self.labels.values.ravel(),
+                cv=cv,
+                n_jobs=-1,
+                verbose=0,
+            )
+
+            accuracy = np.mean(scores)
+        else:
+            svc.fit(self.samples_train, self.labels_train.values.ravel())
+
+            accuracy = svc.score(self.samples_test, self.labels_test)
 
         return -accuracy
 
@@ -375,74 +398,151 @@ class Easc:
             degree=self.best_parameters[2],
             gamma=self.best_parameters[3],
             coef0=self.best_parameters[4],
-            probability=True
+            probability=True,
+            max_iter=100_000
         )
 
-        self.best_svc.fit(self.samples_train, self.labels_train.values.ravel())
+        if (int(self.crossValidate) == 1):
+            kf = KFold(n_splits=10)
 
-        if (self.crossValidate == '1'):
-            cv = KFold(n_splits=10)
+            accuracy_scores = []
+            sensitivity_scores = []
+            specificity_scores = []
+            recall_scores = []
+            roc_aoc_scores = []
+            confusion_matrixes = []
+            precision_scores = []
+            f1_scores = []
+            g_mean_scores = []
 
-            self.scores = cross_validate(
-                self.best_svc,
-                self.samples,
-                self.labels.values.ravel(),
-                scoring='accuracy',
-                cv=cv,
-                n_jobs=-1,
-            )
+            for train, test in kf.split(self.samples):
+                X_train = np.array(self.samples)[train]
+                X_test = np.array(self.samples)[test]
+                y_train = np.array(self.labels)[train]
+                y_test = np.array(self.labels)[test]
 
-            self.accuracy = np.mean(self.scores['test_score'])
+                self.best_svc.fit(X_train, y_train.ravel())
+
+                accuracy = self.best_svc.score(X_test, y_test.ravel())
+
+                predicted = self.best_svc.predict(X_test)
+
+                sensitivity = sensitivity_score(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                    pos_label=self.get_pos_label()
+                )
+
+                specificity = specificity_score(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                    pos_label=self.get_pos_label()
+                )
+
+                recall = recall_score(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                    pos_label=self.get_pos_label()
+                )
+
+                roc_aoc = roc_auc_score(
+                    y_true=np.ravel(y_test),
+                    y_score=self.best_svc.predict_proba(X_test)[:, 1],
+                )
+
+                c_matrix = confusion_matrix(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                )
+
+                precision = precision_score(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                    pos_label=self.get_pos_label()
+                )
+
+                f1 = f1_score(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                    pos_label=self.get_pos_label()
+                )
+
+                g_mean = geometric_mean_score(
+                    y_true=np.ravel(y_test),
+                    y_pred=np.ravel(predicted),
+                    pos_label=self.get_pos_label()
+                )
+
+                accuracy_scores.append(accuracy)
+                sensitivity_scores.append(sensitivity)
+                specificity_scores.append(specificity)
+                recall_scores.append(recall)
+                roc_aoc_scores.append(roc_aoc)
+                confusion_matrixes.append(c_matrix)
+                precision_scores.append(precision)
+                f1_scores.append(f1)
+                g_mean_scores.append(g_mean)
+
+            self.accuracy = np.mean(accuracy_scores)
+            self.sensitivity_score = np.mean(sensitivity_scores)
+            self.specificity_score = np.mean(specificity_scores)
+            self.recall_score = np.mean(recall_scores)
+            self.roc_aoc = np.mean(roc_aoc_scores)
+            self.confusion_matrix = confusion_matrixes
+            self.precision_score = np.mean(precision_scores)
+            self.f1_score = np.mean(f1_scores)
+            self.g_mean_score = np.mean(g_mean_scores)
         else:
+            self.best_svc.fit(self.samples_train, self.labels_train.values.ravel())
             self.accuracy = self.best_svc.score(self.samples_test, self.labels_test)
 
-        predicted = self.best_svc.predict(self.samples_test)
+            predicted = self.best_svc.predict(self.samples_test)
 
-        self.sensitivity_score = sensitivity_score(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-            pos_label=self.get_pos_label()
-        )
+            self.sensitivity_score = sensitivity_score(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+                pos_label=self.get_pos_label()
+            )
 
-        self.specificity_score = specificity_score(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-            pos_label=self.get_pos_label()
-        )
+            self.specificity_score = specificity_score(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+                pos_label=self.get_pos_label()
+            )
 
-        self.recall_score = recall_score(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-            pos_label=self.get_pos_label()
-        )
+            self.recall_score = recall_score(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+                pos_label=self.get_pos_label()
+            )
 
-        self.roc_aoc = roc_auc_score(
-            y_true=np.ravel(self.labels_test),
-            y_score=self.best_svc.predict_proba(self.samples_test)[:, 1],
-        )
+            self.roc_aoc = roc_auc_score(
+                y_true=np.ravel(self.labels_test),
+                y_score=self.best_svc.predict_proba(self.samples_test)[:, 1],
+            )
 
-        self.confusion_matrix = confusion_matrix(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-        )
+            self.confusion_matrix = confusion_matrix(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+            )
 
-        self.precision_score = precision_score(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-            pos_label=self.get_pos_label()
-        )
+            self.precision_score = precision_score(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+                pos_label=self.get_pos_label()
+            )
 
-        self.f1_score = f1_score(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-            pos_label=self.get_pos_label()
-        )
+            self.f1_score = f1_score(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+                pos_label=self.get_pos_label()
+            )
 
-        self.g_mean_score = geometric_mean_score(
-            y_true=np.ravel(self.labels_test),
-            y_pred=np.ravel(predicted),
-            pos_label=self.get_pos_label()
-        )
+            self.g_mean_score = geometric_mean_score(
+                y_true=np.ravel(self.labels_test),
+                y_pred=np.ravel(predicted),
+                pos_label=self.get_pos_label()
+            )
 
     def print_array(self, array):
         string = '[ '
