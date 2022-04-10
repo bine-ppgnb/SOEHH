@@ -50,6 +50,7 @@ class Easc:
         self.thompsonSampling = thompsonSampling
         self.thompsonSamplingExperiment = None
         self.thompsonSamplingLastChoice = None
+        self.thompsonSamplingChoices = {}
 
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
@@ -149,35 +150,42 @@ class Easc:
             return
 
         if self.evolutionaryAlgorithm == 'ga':
+            arms = [
+                'one_point',
+                'two_point',
+                'uniform',
+                'uniform_window',
+                'shuffle',
+                'segment',
+            ]
+
             self.thompsonSamplingExperiment = self.thompson_sampling_create_experiment(
                 6,
-                [
-                    'one_point',
-                    'two_point',
-                    'uniform',
-                    'uniform_window',
-                    'shuffle',
-                    'segment',
-                ],
+                arms,
             )
         else:
+            arms = [
+                'best1bin',
+                'best1exp',
+                'rand1exp',
+                'randtobest1exp',
+                'currenttobest1exp',
+                'best2exp',
+                'rand2exp',
+                'randtobest1bin',
+                'currenttobest1bin',
+                'best2bin',
+                'rand2bin',
+                'rand1bin'
+            ]
+
             self.thompsonSamplingExperiment = self.thompson_sampling_create_experiment(
                 12,
-                [
-                    'best1bin',
-                    'best1exp',
-                    'rand1exp',
-                    'randtobest1exp',
-                    'currenttobest1exp',
-                    'best2exp',
-                    'rand2exp',
-                    'randtobest1bin',
-                    'currenttobest1bin',
-                    'best2bin',
-                    'rand2bin',
-                    'rand1bin'
-                ]
+                arms
             )
+
+        for arm in arms:
+            self.thompsonSamplingChoices[arm] = 0
 
     def thompson_sampling_update_score(self, choosen_crossover, parent, child):
         if isinstance(parent, float):
@@ -209,8 +217,8 @@ class Easc:
         }
 
         choosen_crossover = self.thompsonSamplingExperiment.choose_arm()
-
         self.thompsonSamplingLastChoice = choosen_crossover
+        self.thompsonSamplingChoices[choosen_crossover] += 1
 
         child_x, child_y = crossovers[choosen_crossover](x, y)
 
@@ -221,13 +229,16 @@ class Easc:
 
     def thompson_sampling_de_mutation(self):
         choosen_mutation = self.thompsonSamplingExperiment.choose_arm()
-
         self.thompsonSamplingLastChoice = choosen_mutation
+        self.thompsonSamplingChoices[choosen_mutation] += 1
 
         return choosen_mutation
 
     def thompson_sampling_de_mutation_callback(self, candidateFitness, trialFitness):
         self.thompson_sampling_update_score(self.thompsonSamplingLastChoice, candidateFitness, trialFitness)
+
+    def thompson_sampling_get_most_choosen_arm(self):
+        return max(self.thompsonSamplingChoices, key=self.thompsonSamplingChoices.get)
 
     def genetic_algorithm(self):
         varbound = np.array([
@@ -265,8 +276,8 @@ class Easc:
 
         model.run(
             no_plot=True,
-            disable_progress_bar=False,
-            disable_printing=False,
+            disable_progress_bar=True,
+            disable_printing=True,
         )
 
         self.best_parameters = model.best_variable
@@ -338,9 +349,6 @@ class Easc:
             gamma=X[3],
             coef0=X[4],
         )
-
-        print(self.samples_train)
-        print(self.labels_train.values.ravel())
 
         svc.fit(self.samples_train, self.labels_train.values.ravel())
 
@@ -468,18 +476,33 @@ class Easc:
         if (hasattr(self, 'feature_mask')):
             feature_mask = self.feature_mask
 
-        if (self.results_format == 'txt'):
-            if (self.print_header == '1'):
-                print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score"))
+        if (int(self.thompsonSampling) == 1):
+            if (self.results_format == 'txt'):
+                if (self.print_header == '1'):
+                    print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score", "thompson_sampling_most_choosen_arm"))
 
 
-            print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
-                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score))
+                print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+                                                                                        self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score, self.thompson_sampling_get_most_choosen_arm()))
+            else:
+                if (self.print_header == '1'):
+                    print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score", "thompson_sampling_most_choosen_arm"))
+
+                print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+                                                                                     self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score, self.thompson_sampling_get_most_choosen_arm()))
         else:
-            if (self.print_header == '1'):
-                print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score"))
+            if (self.results_format == 'txt'):
+                if (self.print_header == '1'):
+                    print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score"))
 
-            print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+
+                print("%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
+                                                                                        self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score))
+            else:
+                if (self.print_header == '1'):
+                    print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % ("accuracy", "nsv", "time", "C", "kernel", "degree", "gamma", "coef0", "shrinking", "break_ties", "feature_mask", "number_of_selected_features", "sensitivity_score", "specificity_score", "recall_score", "roc_aoc", "confusion_matrix", "precision_score", "f1_score", "g_mean_score"))
+
+                print("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (self.accuracy, self.best_svc.n_support_, (self.end_time -
                                                                                      self.start_time), self.best_svc.C, self.best_svc.kernel, self.best_svc.degree, self.best_svc.gamma, self.best_svc.coef0, self.best_svc.shrinking, self.best_svc.break_ties, self.print_array(list(feature_mask)), sum(list(x == True for x in feature_mask)), self.sensitivity_score, self.specificity_score, self.recall_score, self.roc_aoc, self.print_matrix(self.confusion_matrix), self.precision_score, self.f1_score, self.g_mean_score))
 
     def run(self):
