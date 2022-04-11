@@ -249,15 +249,25 @@ class Easc:
         return max(self.thompsonSamplingChoices, key=self.thompsonSamplingChoices.get)
 
     def genetic_algorithm(self):
-        varbound = np.array([
-            [2e-10, 2e5],
-            [1, 4],
-            [2, 5],
-            [2e-10, 2e5],
-            [2e-10, 2e5]
-        ])
+        if self.kernel == 'dynamic':
+            varbound = np.array([
+                [2e-10, 2e5],
+                [1, 4],
+                [2, 5],
+                [2e-10, 2e5],
+                [2e-10, 2e5]
+            ])
 
-        vartype = np.array(['real', 'int', 'int', 'real', 'real'])
+            vartype = np.array(['real', 'int', 'int', 'real', 'real'])
+        else:
+            varbound = np.array([
+                [2e-10, 2e5],
+                [2, 5],
+                [2e-10, 2e5],
+                [2e-10, 2e5]
+            ])
+
+            vartype = np.array(['real', 'int', 'real', 'real'])
 
         if int(self.thompsonSampling) == 1:
             crossover = self.thompson_sampling_ga_crossover
@@ -291,13 +301,21 @@ class Easc:
         self.best_parameters = model.best_variable
 
     def differential_evolution(self):
-        bounds = [
-            (2e-10, 2e5),
-            (1, 4),
-            (2, 5),
-            (2e-10, 2e5),
-            (2e-10, 2e5),
-        ]
+        if self.kernel == 'dynamic':
+            bounds = [
+                (2e-10, 2e5),
+                (1, 4),
+                (2, 5),
+                (2e-10, 2e5),
+                (2e-10, 2e5),
+            ]
+        else:
+            bounds = [
+                (2e-10, 2e5),
+                (2, 5),
+                (2e-10, 2e5),
+                (2e-10, 2e5),
+            ]
 
         if int(self.thompsonSampling) == 1:
             mutationCallback = self.thompson_sampling_de_mutation_callback
@@ -350,14 +368,24 @@ class Easc:
             raise Exception('Invalid kernel!')
 
     def classifier(self, X):
-        svc = SVC(
-            C=X[0],
-            kernel=self.get_kernel(X[1]),
-            degree=X[2],
-            gamma=X[3],
-            coef0=X[4],
-            max_iter=100_000
-        )
+        if self.kernel == 'dynamic':
+            svc = SVC(
+                C=X[0],
+                kernel=self.get_kernel(X[1]),
+                degree=X[2],
+                gamma=X[3],
+                coef0=X[4],
+                max_iter=100_000
+            )
+        else:
+            svc = SVC(
+                C=X[0],
+                kernel=self.kernel,
+                degree=X[1],
+                gamma=X[2],
+                coef0=X[3],
+                max_iter=100_000
+            )
 
         if (int(self.crossValidate) == 1):
             cv = KFold(n_splits=10)
@@ -392,15 +420,26 @@ class Easc:
         return mapping[datasetName]
 
     def calculate_metrics(self):
-        self.best_svc = SVC(
-            C=self.best_parameters[0],
-            kernel=self.get_kernel(self.best_parameters[1]),
-            degree=self.best_parameters[2],
-            gamma=self.best_parameters[3],
-            coef0=self.best_parameters[4],
-            probability=True,
-            max_iter=100_000
-        )
+        if self.kernel == 'dynamic':
+            self.best_svc = SVC(
+                C=self.best_parameters[0],
+                kernel=self.get_kernel(self.best_parameters[1]),
+                degree=self.best_parameters[2],
+                gamma=self.best_parameters[3],
+                coef0=self.best_parameters[4],
+                probability=True,
+                max_iter=100_000
+            )
+        else:
+            self.best_svc = SVC(
+                C=self.best_parameters[0],
+                kernel=self.kernel,
+                degree=self.best_parameters[1],
+                gamma=self.best_parameters[2],
+                coef0=self.best_parameters[3],
+                probability=True,
+                max_iter=100_000
+            )
 
         if (int(self.crossValidate) == 1):
             kf = KFold(n_splits=10)
