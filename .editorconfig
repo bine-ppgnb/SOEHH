@@ -1,0 +1,49 @@
+# EditorConfig is awesome: http://EditorConfig.org
+
+[*]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# 4 space indentation
+[*.{py,java,r,R}]
+indent_style = space
+indent_size = 4
+
+# 2 space indentation
+[*.{js,json,y{a,}ml,html,cwl}]
+indent_style = space
+indent_size = 2
+
+[*.{md,Rmd,rst}]
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 2
+
+[.git*]
+indent_size = tab
+indent_style = tab
+
+[*.{sh}]
+indent_style = space
+indent_size = 2
+end_of_line = lf
+charset = utf-8
+shell_variant      = bash
+binary_next_line   = true  # like -bn
+switch_case_indent = true  # like -ci
+space_redirects    = true  # like -sr
+keep_padding       = false # like -kp
+end_of_line        = lf
+charset            = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[**.bats]
+indent_size = tab
+indent_style = tab
+shell_variant	= bats
