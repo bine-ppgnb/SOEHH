@@ -1,5 +1,4 @@
 dataset_path="/home/gbine/Code/mestrado/svm-python/datasets"
-number_of_executions=30
 
 datasets=("winsconsin_569_32_normalizado")
 evolutionary_algorithms=("ga" "de")
@@ -44,7 +43,7 @@ do
 
             mkdir -p $output_path
 
-            for o in {1..number_of_executions}
+            for o in {1..30}
             do
               echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${o}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
 
@@ -93,7 +92,7 @@ do
 
             mkdir -p $output_path
 
-            for o in {1..number_of_executions}
+            for o in {1..30}
             do
               echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${o}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
 
