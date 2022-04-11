@@ -46,7 +46,7 @@ do
 
             for o in {1..number_of_executions}
             do
-              echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${0}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
+              echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${o}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
 
               if [ $o = 1 ]; then
                   python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=${formatted_feature_selection} --number_of_features_to_select=half --test_size=${real_test_size} --cross_validate=0 --kernel=${kernels[$m]} --imputer_strategy=most_frequent --results_format=csv --print_header=1 --thompson_sampling=${thompson_sampling[$n]} >> $output_file
@@ -54,7 +54,7 @@ do
                   python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=${formatted_feature_selection} --number_of_features_to_select=half --test_size=${real_test_size} --cross_validate=0 --kernel=${kernels[$m]} --imputer_strategy=most_frequent --results_format=csv --print_header=0 --thompson_sampling=${thompson_sampling[$n]} >> $output_file
               fi
 
-              echo "Finalizado: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${0}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
+              echo "Finalizado: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${o}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
             done
           done
         done
@@ -95,7 +95,7 @@ do
 
             for o in {1..number_of_executions}
             do
-              echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${0}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
+              echo "Executando: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${o}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
 
               if [ $o = 1 ]; then
                   python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=${formatted_feature_selection} --number_of_features_to_select=half --cross_validate=${cross_validate[$l]} --test_size=0.3 --kernel=${kernels[$m]} --imputer_strategy=most_frequent --results_format=csv --print_header=1 --thompson_sampling=${thompson_sampling[$n]} >> $output_file
@@ -103,7 +103,7 @@ do
                   python3 main.py --evolutionary_algorithm=${evolutionary_algorithms[$j]} --dataset=${dataset_path}/${datasets[$i]}.csv --feature_selection=${formatted_feature_selection} --number_of_features_to_select=half --cross_validate=${cross_validate[$l]} --test_size=0.3 --kernel=${kernels[$m]} --imputer_strategy=most_frequent --results_format=csv --print_header=0 --thompson_sampling=${thompson_sampling[$n]} >> $output_file
               fi
 
-              echo "Finalizado: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${0}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
+              echo "Finalizado: ${evolutionary_algorithms[$j]} em: ${datasets[$i]}, iteração: ${o}, fs: ${feature_selection_methods[$k]}, test-size: ${formatted_test_size}"
             done
           done
         done
