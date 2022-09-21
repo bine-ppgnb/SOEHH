@@ -347,7 +347,7 @@ class Easc:
             kernel=self.kernel,
         )
 
-        self.best_parameters = svc.x;
+        self.best_parameters = [svc.C, svc.degree, svc.gamma, svc.coef0];
 
     def classify_dataset(self):
         if (self.evolutionaryAlgorithm == 'ga'):
