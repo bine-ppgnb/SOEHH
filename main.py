@@ -342,13 +342,20 @@ class Easc:
             maxfun=10000,
         ).x
 
+    def canonical_svm(self):
+        svc = SVC(
+            kernel=self.kernel,
+        )
+
+        self.best_parameters = svc.x;
+
     def classify_dataset(self):
         if (self.evolutionaryAlgorithm == 'ga'):
             self.genetic_algorithm()
         elif (self.evolutionaryAlgorithm == 'de'):
             self.differential_evolution()
         else:
-            raise Exception('Invalid evolutionary algorithm!')
+            self.canonical_svm();
 
     def get_kernel(self, kernel_id):
         if (self.kernel != 'dynamic'):
@@ -658,7 +665,7 @@ class Easc:
         self.print()
 
 @click.command()
-@click.option("--evolutionary_algorithm", default="ga", prompt="Evolutionary algorithm (ga or de)", help="The evolutionary algorithm to use.")
+@click.option("--evolutionary_algorithm", default="ga", prompt="Evolutionary algorithm (ga, de or None)", help="The evolutionary algorithm to use.")
 @click.option("--dataset", prompt="Path to dataset", help="The path to dataset to be used (csv).")
 @click.option("--feature_selection", default="None", prompt="Feature selection (1-10 or None)", help="The feature selection method to use.")
 @click.option("--number_of_features_to_select", default="half", prompt="Number of features to select, only applicable if feature selection is enabled", help="The number of features to select.")
