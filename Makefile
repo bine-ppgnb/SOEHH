@@ -31,5 +31,5 @@ run-all: setup clean
 
 # In this context, the *.project pattern means "anything that has the .project extension"
 clean:
-	rm -rf ./results/**/**/*.txt
-	rm -rf ./results/**/**/*.csv
+	rm -rf ./results/**/**/**/**/*.txt
+	rm -rf ./results/**/**/**/**/*.csv

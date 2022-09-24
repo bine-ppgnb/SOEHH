@@ -1,5 +1,7 @@
 /.idea
-/results/winsconsin_569_32_normalizado/ga/*
-/results/winsconsin_569_32_normalizado/de/*
-/results/winsconsin_699_10_normalizado/ga/*
-/results/winsconsin_699_10_normalizado/de/*
+/.vscode
+/results/winsconsin_569_32_normalizado/*
+/results/winsconsin_699_10_normalizado/*
+/results/winsconsin_198_34_normalizado/*
+/results/coimbra_116_10_normalizado/*
+__pycache__

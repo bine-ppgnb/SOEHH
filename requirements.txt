@@ -1,9 +1,12 @@
-scipy==1.6.0
-imbalanced_learn==0.9.0
-sklearn_genetic==0.4.1
-geneticalgorithm2==6.5.1
 numpy==1.19.5
+scipy==1.6.0
+sklearn_genetic==0.4.1
+imbalanced_learn==0.9.0
+geneticalgorithm2==6.5.1
 click==7.1.2
+scikit_learn_intelex==2021.5.3
+thompson_sampling==0.0.4
 pandas==1.2.4
 imblearn==0.0
 scikit_learn==1.0.2
+OppOpPopInit==1.2.0
