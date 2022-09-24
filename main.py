@@ -58,7 +58,7 @@ class Easc:
     def load_dataset(self):
         # Read the csv data into a pandas data frame (df)
         df = pd.read_csv(
-            filepath_or_buffer=os.path.dirname(__file__) + '/datasets/' + self.dataset,
+            filepath_or_buffer=os.path.dirname(__file__) + '/workdir/datasets/' + self.dataset,
             header=0
         )
 

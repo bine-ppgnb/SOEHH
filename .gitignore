@@ -1,7 +1,7 @@
 /.idea
 /.vscode
-/results/winsconsin_569_32_normalizado/*
-/results/winsconsin_699_10_normalizado/*
-/results/winsconsin_198_34_normalizado/*
-/results/coimbra_116_10_normalizado/*
+/results/winsconsin_569_32_normalizado/*/**
+/results/winsconsin_699_10_normalizado/*/**
+/results/winsconsin_198_34_normalizado/*/**
+/results/coimbra_116_10_normalizado/*/**
 __pycache__
