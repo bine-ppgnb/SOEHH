@@ -1,4 +1,4 @@
-<h1 align="center">EASC - Evolutionary Adaptavive SVM Classifier</h1>
+<h1 align="center">SOEHH - SVM Optimization based on Evolutionary Hyper-Heuristics</h1>
 
 Tabela de conteúdos
 =================
